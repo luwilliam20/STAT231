@@ -1,6 +1,6 @@
 ---
 title: "UN Votes (Round 2)"
-author: ''
+author: 'Lu William'
 date: "September 1, 2020"
 always_allow_html: yes
 output:
