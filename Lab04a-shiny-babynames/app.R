@@ -12,70 +12,58 @@
 
 library(shiny)
 library(tidyverse)
+library(fivethirtyeight)
 
-# data
-install.packages('fivethirtyeightdata', repos
-                 = 'https://fivethirtyeightdata.github.io/drat/', type = 'source')
 ncaa_w_bball_tourney
-babynames
 
-#ncaa_w_bball_tourney_data <- ncaa_w_bball_tourney::ncaa_w_bball_tourney
+#colleges_of_interest <- ncaa_w_bball_tourney %>%
+   #filter(year == "2000") %>%
+   #select(school)
 
-# create choices vector for name choices
-# too many names! app will be sloooooow
-#name_choices <- babynames_dat %>% 
-#  count(name) %>%
-#  select(name)
+#colleges_of_interest
 
-name_choices <- str_to_title(c("Boston College", "Amherst", "Indiana", "Michigan", 
-                               "USC", "Georgetown", "Columbia", "Harvard","UT Austin",
-                               "Trinity", "Florida", "Notre Dame", "UPenn", "Yale", "Cornell",
-                               "Duke", "Vanderbilt", "Northwestern", "UC Berkeley", "Wellesey",
-                               "MIT", "Stanford", "UChicago", "NYU"))
+#my_data <- reactive({
+#data <- ncaa_w_bball_tourney %>%
+#group_by(reg_w) %>%
+#data
 
-name_choices
+#})
 
 ui <- fluidPage(
-   
-   titlePanel("WALL STREET FEEDER SCHOOLS AND THEIR NCAA WBB SUCCESS"),
-
+   titlePanel("NCAA WBB REGULAR SEASON SUCCESS"),
    sidebarLayout(
       sidebarPanel(
-        selectInput(inputId = "school", 
-                    label = "School:",
-                    choices = name_choices, 
-                    selected = "Amherst"),
-        radioButtons(inputId = "classify", 
+        selectInput(inputId = "sch", 
+                    label = "school",
+                    choices = ncaa_w_bball_tourney$school 
+                   ),
+        radioButtons(inputId = "class", 
                     label = "Metric",
-                    choices = c("seed", "regular season wins"), 
-                    selected = "seed")
+                    choices = c("reg_w"), 
+                    selected = "reg_w")
       ),
       
       mainPanel(
-         plotOutput("distPlot")),
-      sidebarPanel(
-         plotOutput("histPlot")),
-      sidebarPanel(
-         plotOutput("boxPlot"))
+         plotOutput("histPlot"))
    )
 )
 
-# Define server logic required to draw a histogram
+
 server <- function(input, output) {
+
    
-   output$distPlot <- renderPlot({
-     
-     dat <- ncaa_w_bball_tourney %>%
-       filter(School %in% input$school & Metric == input$classify) %>%
-       group_by(seed, reg_w) %>%
-       summarize(total = sum(n))
-     
-     ggplot(data = dat, aes(x = year, y = total)) +
-       geom_line(color = "#0095b6") + 
-       labs(x = "Year", y = "Total number of births with this name"
-            , title = paste("Babies Named", paste(input$nm)))
+   output$histPlot <- renderPlot({
+   print(input$sch)
+   my_data <- ncaa_w_bball_tourney %>%
+      filter(school == input$sch)
+      
+   ggplot(data = my_data, aes(x = reg_w)) +
+    geom_histogram() +
+      geom_histogram(color = "black", fill = "purple", binwidth = 1) +
+      labs(x = "Number of Wins per Season", y = "Number of Seasons", title = paste("Women's Basketball at", input$sch))
      
    })
+   
 }
 
 # Run the application 
