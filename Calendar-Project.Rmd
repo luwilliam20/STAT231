@@ -1,0 +1,220 @@
+---
+title: "Calendar Project"
+author: "William Lu"
+date: "9/22/2020"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+-------------------------------------------------------------------------------------------------------------------------
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ical)
+library(ggplot2)
+
+#loading in my calendar data set
+
+my_calendarWILL <- ical_parse_df(file = "wlu22@amherst.edu.ical/Calendar Project_c_7odci7ee8ik5u8spdmglb2cr68@group.calendar.google.com.ics") %>%
+mutate(start_datetime = with_tz(start, tzone = "America/New_York")
+, end_datetime = with_tz(end, tzone = "America/New_York")
+, length_sec = end_datetime - start_datetime
+, date = floor_date(start_datetime, unit = "day"))
+```
+
+-------------------------------------------------------------------------------------------------------------------------
+
+```{r, eval = FALSE}
+#figuring out what variables exist in the data set and printing those values
+
+names(my_calendarWILL)
+```
+
+
+```{r}
+#filtering out the irrelevant data, focusing only on the events in the past two weeks 
+
+my_calendar <- my_calendarWILL %>%
+        filter(date > "2020-09-01") %>%
+              select(-c(uid, description, last.modified, status))
+
+my_calendar
+```
+
+
+```{r}
+#summarizing my data by totaling the number of minutes spent on each activity
+
+my_calendar2 <- my_calendar %>%
+    mutate(summary = tolower(summary)) %>%
+      #grouping by category: data science, probability, geology, networking calls and emails, interview practice
+        group_by(summary)%>%
+              #storing the new data set in a new object
+                summarize(tot_mins = sum(length_sec),
+                          #transforming tot_mins from into a numeric variable
+                            tot_mins = as.numeric(sum(tot_mins)))
+
+my_calendar2
+```
+
+
+```{r}
+#histogram of my activities identified by summary label and color coded
+bar_myCalendar <- ggplot(data = my_calendar2,
+  aes(x = summary, y = tot_mins)) +
+    geom_bar(aes(fill = summary), stat = "identity") +
+                        labs(y = "Minutes", x = "Activity", title = "WEEKLY ACTIVITIES") +
+                                                                    theme(axis.text.x = element_blank())
+
+bar_myCalendar
+```
+
+-------------------------------------------------------------------------------------------------------------------------
+
+```{r}
+my_calendarWILL2 <- my_calendar %>%
+  #transforming the start and end dates into strings rather than the long form display of time
+  mutate(start = as.character(start),
+              end = as.character(end),
+                  #shift everything down to lowercase
+                  summary = tolower(summary),
+                    #rename to "length_mins" and transform that into a numeric variable 
+                    length_mins = length_sec,
+                      length_mins = as.numeric(length_mins),
+                        #create a new variable called day_of_week with the categorical options of Monday1 through                                Sunday2
+                        day_of_week = case_when(str_detect(start, "2020-09-07") == TRUE ~ "Monday1", 
+                                        str_detect(start, "2020-09-08") == TRUE ~ "Tuesday1",
+                                          str_detect(start, "2020-09-09") == TRUE ~ "Wednesday1",
+                                            str_detect(start, "2020-09-10") == TRUE ~ "Thursday1",
+                                              str_detect(start, "2020-09-11") == TRUE ~ "Friday1", 
+                                                str_detect(start, "2020-09-12") == TRUE ~ "Saturday1", 
+                                                  str_detect(start, "2020-09-13") == TRUE ~ "Sunday1",
+                                                    str_detect(start, "2020-09-14") == TRUE ~ "Monday2",
+                                                      str_detect(start, "2020-09-15") == TRUE ~ "Tuesday2",
+                                                        str_detect(start, "2020-09-16") == TRUE ~ "Wednesday2",
+                                                          str_detect(start, "2020-09-17") == TRUE ~ "Thursday2",
+                                                            str_detect(start, "2020-09-18") == TRUE ~ "Friday2",
+                                                              str_detect(start, "2020-09-19") == TRUE ~ "Saturday2",
+                                                                str_detect(start, "2020-09-20") == TRUE ~ "Sunday2"))%>%
+                                                                  #remove extraneous columns so that we are left only                                                                       with our columns of interest
+                                                                  select(-c(start_datetime, end_datetime, 
+                                                                            date, length_sec)) 
+
+
+my_calendarWILL3 <- my_calendarWILL2 %>%
+  #creating a new variable called activity_type, which has the categorical options of Academic and Recruiting
+  mutate(activity_type = 
+           case_when(
+             #any activity from summary including the words class, office hours, study time, are labeled as academic
+             str_detect(summary, "class") == TRUE ~ "Academic",
+              str_detect(summary, "office hours") == TRUE ~ "Academic",
+               str_detect(summary, "study time") == TRUE ~ "Academic",
+                #any activity from summary that includes the phrases interview, emails, networking
+                str_detect(summary, "emails") == TRUE ~ "Recruiting",
+                  str_detect(summary, "interview") == TRUE ~ "Recruiting",
+                    str_detect(summary, "networking") == TRUE ~ "Recruiting")) %>%
+                      #removing the columns not necessary in this case for clarity
+                      select(-c(start, end))
+
+my_calendarWILL3
+
+```
+
+
+```{r}
+#plot depicting my longest and shortest recruiting activities versus academic activities, sectioned by day
+plot_myCalendar <- ggplot(data = my_calendarWILL3, aes(y = length_mins, x = day_of_week)) + 
+  geom_point(aes(color = activity_type, size = 1), stat = "identity", ) +
+    ylab("Minutes") +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot_myCalendar
+```
+-------------------------------------------------------------------------------------------------------------------------
+
+```{r}
+#creating a table that employs pivot_wider
+table_sum <- my_calendarWILL3 %>%
+  #grouping by activity_type and day_of_week allows us to isolate the column of interest
+  group_by(activity_type, day_of_week) %>%
+    #summarizing the length_mins and transforming that into a new column called tot_mins tells us the total minutes spent       for each type of activity that day
+    summarize(tot_mins = sum(length_mins)) %>%
+      pivot_wider(names_from = activity_type, values_from = tot_mins)
+
+table_sum
+```
+
+
+
+Do I spend more of my time on recruiting or academics?
+
+
+Looking at my table_sum, I realize that more often than not, I spend more time recruiting for my summer internship than studying. The Weekdays especially, the number of minutes spent drafting emails, hopping on calls, and practicing interview questions outweighed time spent studying, in class, or in office hours. There were only three exceptions to this generality: the Saturdays, Sundays, and Tuesdays of both weeks, where academic activities took up the bulk of my hours.
+
+
+How much time is spent on each class?
+
+
+For the past two weeks, I've spent 1,100 minutes on Data Science, which was split between 320 minutes on class itself,  120 minutes on office hours, and 660 minutes on study time itself. I also spent a total of 720 minutes on Geology, split between 300 minutes of class itself, 60 minutes of office hours, and 360 minutes of study time. Finally, I spent a total of 1,020 minutes on Probability, split between 300 minutes of class time, 420 minutes of office hours, and 300 minutes of study time.
+
+
+I've spent a total of 2,840 minutes on academics and a total of 3,150 minutes on recruiting. Time spent on recruiting was split between minutes of 1,590 minutes of networking calls, 480 minutes of drafting emails, and 1,080 minutes of practicing interview questions.
+
+
+What day did I spend the most amount of time being busy?
+
+
+It seems that I was busiest on the first Friday of the two week period, with my longest activities being recruiting centered and over 200 minutes. The second Friday in comparison was not nearly as busy, with my longest recruiting activity being only below 100 minutes—that was actually the slowest day I had. The next busiest day I had was the first Wednesday of that same week, with my longest recruiting activity being over 175 minutes. The second Wednesday was a little less busy, but some substantial recruiting events did take place(I did actually have an interview that day so even though the time spent recruiting was shorter, I was twice as stressed).
+
+
+-------------------------------------------------------------------------------------------------------------------------
+What difficulties in the data collection and analysis process did you encounter? Identify two of your
+main hurdles in gathering accurate data.
+
+
+It was difficult collecting some parts of my recruiting data. The networking calls varied in length: some really great ones went as long as 30 to 45 minutes, while others I could not wait to get off the phone and lasted only 10 minutes in length. I went back and I averaged out the duration of each call, thinking I could seperate each call into sizable and similar chunks (of usually 20 or 30 minutes), but in end, I decided to clump together some of the back to back (to back to back to back) calls together. The individual calls that were not followed by subsequent calls were recorded as the originally intended 30 minute chunks—this was the issue with my first hurdle.
+
+
+My second hurdle came with making a decision whether or not to include the time spent doing background research on the firms, individuals, different industries, as well as including time spent writing up my call notes after every conversation. Both research and note-taking, depending on the firm, individual, my priorities and preferences, took anywhere between 15 to 30 minutes of my time(of course, banks that had better cultures and individuals whom I connected deeper with took up more of my research and note-taking minutes). In the very end, I considered those events to be details important enough that they should be reflected in the total amount of time spent recruiting, but also extraneous enough to not be given their own category. After all, you can't land the internship without talking to people in the industry, so that should be the most important detail.
+
+
+What implications does that have for future data collection and/or analysis projects?
+
+
+One implication I have for future data collection and analysis projects would definitely be the level or measure of specificity in our data collection. Of course, I do not expect the data collection process to be as simple as recording my activities on Google Calendar, but assuming the best, I would also try to iron out the unpredictable hurdles that come with my future question of interest. Perhaps, if I could do this project over again, I would definitely take a "test week" to figure out what my data collection would entail (maybe include an extra week of test trials, so 3 weeks of sample size in general).
+
+
+How much data do you think you’d need to collect in order to answer your question(s) of interest?
+
+
+I definitely think I need at least a month's worth of data to make an accurate prediction; I started recruiting sometime back in June, so it has been a fruitful 4 months of action-packed outreach and rehearsal. A good sample size would definitely be one or two months because things typically pick up when there are first round interviews or superdays (final round interviews) happening.
+
+
+Would it be hard to collect that data? Why or why not?
+
+
+I honestly do not think it will be that difficult. It might be annoying to record every little thing that you do, so what I would recommend to my past self is to carry around a small notepad or something similar so I can write things down in bullet list format. At the end of my day, I would go back in Calendar and upload everything as appropriately. I feel that everything is more accurate and reliable in writing.
+
+
+As someone who provides data, what expectations do you have when you give your data (e.g. to Facebook, Google, MapMyRun, etc.)?
+
+
+As someone who provides data, I expect my data to be private to an extent. I realize for the sake of running the business and to uphold the social media/internet structure, there is no way that everything I do on the internet will be kept in secret. What I don't want happening is for my profile to be sold off to Cambridge Analytica or some other consulting firm without my complete consent. But I imagine we are still working towards that ideal. 
+
+
+As someone who analyzes others’ data, what ethical responsibilities do you have?
+
+
+I would say that common sense is a good starting point for anything ethical. Not only should an ethical data scientist always tell the truth, not steal, not harm innocent people in any way(like any other kind human being), but also should remain professional in the worst of situations. It is important to separate emotions from business, and be as neutral, unemotional, and informed as you possibly can. Additionally, handling data is extremely sensitive, and an ethical data scientist should ask for help when needed to avoid the worst of mistakes. Obviously privacy must be respected and kept confidential, and at the very end of the day, the data scientist should remember that he or she remains a member of society despite the position.
